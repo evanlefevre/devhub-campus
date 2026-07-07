@@ -122,6 +122,8 @@ Validation : `helm lint` → `0 chart(s) failed` sur les 3 ; `helm template … 
 - **Rotation du mot de passe admin** : le mot de passe initial (secret `argocd-initial-admin-secret`) a été récupéré puis remplacé via `argocd account update-password`. Le secret initial est désormais caduc.
 - Première `Application` `annuaire-dev` créée manuellement, validée en sync manuel, puis basculée en auto-sync + `selfHeal`.
 
+> 📸 **[CAPTURE À INSÉRER n°1]** — UI ArgoCD, vue détail de l'Application `annuaire-dev` montrant le statut **Synced + Healthy** et l'arbre `Deployment → ReplicaSet → Pods`, `Service`, `Ingress`.
+
 ### `selfHeal: true` vs `prune: true`
 
 Ce sont **deux protections orthogonales**, dangereuses dans des cas différents :
@@ -144,6 +146,8 @@ Un `kubectl apply -f` est une action *ponctuelle et impérative* : elle applique
 
 État validé : `root` + `annuaire-dev` + `planning-dev` + `notif-dev` = **Synced + Healthy**, les 3 services répondent `200` sur `/healthz` via leur ingress.
 
+> 📸 **[CAPTURE À INSÉRER n°2]** — UI ArgoCD, vue **Applications** (grille) montrant les **4 Applications** : la racine `root` et ses trois enfants `annuaire-dev`, `planning-dev`, `notif-dev`, toutes Synced + Healthy.
+
 ---
 
 ## Étape 7 — ApplicationSet : previews par branche
@@ -161,6 +165,10 @@ Un `ApplicationSet` par service (`goTemplate`, filtre `branchMatch: ^feature/.*`
 - Fermeture de la PR → les 3 Applications sont **prune** (supprimées).
 - Réouverture → recréation à l'identique.
 
+> 📸 **[CAPTURE À INSÉRER n°3a]** — UI ArgoCD montrant l'`ApplicationSet` `annuaire-preview` et, en dessous, les Applications preview générées (`*-preview-feature-demo-prof`).
+>
+> 📸 **[CAPTURE À INSÉRER n°3b]** — le service preview dans le navigateur : `http://annuaire-feature-demo-prof.devhub.local/healthz` renvoyant `{"ok":true,"service":"annuaire"}` (et/ou l'arbre de la preview montrant **3 pods** annuaire).
+
 Reproduction pour la démo au formateur : ouvrir/réouvrir la PR #1 (ou pousser une nouvelle branche `feature/*` + PR), observer l'apparition dans l'UI, refermer pour le prune.
 
 ---
@@ -175,6 +183,11 @@ Reproduction pour la démo au formateur : ouvrir/réouvrir la PR #1 (ou pousser 
 | 4 | Hook `PreSync` (Job de migration) | Le Job passe **Running → Succeeded AVANT** l'application du Deployment ; logs : `migration ok`. Un hook PreSync en échec bloquerait la sync. |
 | 5 | Sync waves : ConfigMap (wave -1) avant Deployment (wave 0) | Ordre respecté (ConfigMap appliqué en premier). En **cassant** la référence (Deployment → ConfigMap inexistant), le pod part en **CreateContainerConfigError** : la dépendance de wave inférieure manquante empêche le démarrage. |
 | 6 | Prune | ConfigMap retiré du chart : avec **prune:false** il reste orphelin (app OutOfSync) ; avec **prune:true** il est **supprimé** (app Synced). |
+
+> 📸 **[CAPTURES À INSÉRER n°4]** — une capture de l'UI ArgoCD par manipulation, au moment du diagnostic. Au minimum les 3 plus parlantes :
+> - **4a** — manip 2 : Application `Synced` mais un pod en **ImagePullBackOff** (statut jaune/Progressing).
+> - **4b** — manip 5 : le pod en **CreateContainerConfigError** après la coupure du ConfigMap.
+> - **4c** — manip 6 : l'Application **OutOfSync** avec le ConfigMap marqué à *prune* (prune:false), puis Synced après prune:true.
 
 **Méthode de diagnostic retenue :** face à un `OutOfSync + Degraded`, je regarde d'abord l'état des pods (`waiting.reason` : ImagePullBackOff ? CreateContainerConfigError ?), puis les *events* du namespace, puis les logs. Le `diff` d'ArgoCD indique si l'écart vient de Git ou d'une modif hors-Git.
 
@@ -191,6 +204,8 @@ Deux rôles dans `argocd-rbac-cm` (matching en **glob**, pas regex POSIX) + un c
 
 Preuve : connecté en `developer`, `argocd app sync annuaire-dev` est **autorisé**, `argocd app sync planning-dev` est **refusé** (`PermissionDenied: applications, sync, devhub/planning-dev, sub: developer`).
 
+> 📸 **[CAPTURE À INSÉRER n°5]** — le terminal montrant, en tant que `developer` : `argocd app sync annuaire-dev` qui réussit, puis `argocd app sync planning-dev` qui renvoie **`PermissionDenied`**.
+
 ### Notifications (validé)
 
 Sous-système `argocd-notifications` activé : trigger `on-sync-failed` → template → webhook (mocké avec webhook.site). En cassant volontairement une sync (hook PreSync en `exit 1`), webhook.site a reçu le POST :
@@ -199,6 +214,9 @@ Sous-système `argocd-notifications` activé : trigger `on-sync-failed` → temp
 { "application": "annuaire-dev", "revision": "0ccb5b3...", "phase": "Failed",
   "message": "one or more synchronization tasks completed unsuccessfully" }
 ```
+
+> 📸 **[CAPTURE À INSÉRER n°6]** — l'interface **webhook.site** montrant la requête **POST reçue** avec ce corps JSON (application, revision, phase=Failed, message).
+
 *Piège rencontré :* le destinataire d'une souscription webhook est le **nom** du webhook (`devhub`), pas `webhook:devhub` — sinon ArgoCD cherche un type de service « webhook » et échoue.
 
 ### Observabilité — 3 métriques Prometheus utiles
@@ -208,6 +226,8 @@ Sous-système `argocd-notifications` activé : trigger `on-sync-failed` → temp
 | `argocd_app_info` | gauge (1 série/app, labels `health_status`, `sync_status`, `autosync_enabled`) | Combien d'Applications sont **OutOfSync / Degraded** en ce moment, et lesquelles. La base d'une alerte « X apps non-Healthy ». |
 | `argocd_app_sync_total` | compteur (labels `name`, `phase`) | Le **taux d'échec de sync** par app. Observé en vrai : `phase="Failed" 3` sur annuaire-dev pendant la démo notification. Un pic = un déploiement qui n'arrive pas à passer. |
 | `argocd_app_reconcile` | histogramme (secondes) | La **durée de réconciliation**. Si le p95 grimpe, le repo-server ou l'API cluster est saturé → les syncs prennent du retard. |
+
+> 📸 **[CAPTURE À INSÉRER n°7]** *(facultatif)* — le terminal montrant la sortie de `curl localhost:8082/metrics | grep argocd_app_info` (ou `argocd_app_sync_total`), pour prouver que les métriques sont exposées.
 
 ---
 
