@@ -1,0 +1,60 @@
+# Values par défaut du chart annuaire.
+# Surchargées par values-dev.yaml et values-preview.yaml selon l'environnement.
+
+image:
+  repository: ghcr.io/evanlefevre/annuaire
+  # rempli par environnement / à la release avec le SHA court du commit.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: nginx
+  host: annuaire.devhub.local
+  path: /
+
+env:
+  LOG_LEVEL: info
+
+# Labels additionnels appliqués à toutes les ressources (via le helper labels).
+# Vide par défaut ; les previews y injectent devhub.io/env: preview.
+extraLabels: {}
+
+# TODO étape 4 (défi) : ajoutez ici un bloc `pdb` pour le PodDisruptionBudget.
+# pdb:
+#   enabled: false
+#   minAvailable: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+securityContext:
+  # aligné avec le USER 1001 du Dockerfile.
+  runAsNonRoot: true
+  runAsUser: 1001
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+probes:
+  readiness:
+    path: /healthz
+    initialDelaySeconds: 2
+    periodSeconds: 5
+  liveness:
+    path: /healthz
+    initialDelaySeconds: 10
+    periodSeconds: 10

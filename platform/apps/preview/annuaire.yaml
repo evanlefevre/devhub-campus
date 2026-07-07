@@ -1,0 +1,67 @@
+# ApplicationSet : annuaire — previews par branche (étape 7).
+#
+# Generator retenu : scmProvider (GitHub).
+#   Justification (RAPPORT.md) : la démo du TP repose sur un cycle de vie de
+#   BRANCHE (« je pousse feature/demo-prof → preview ; je supprime la branche
+#   → prune »), pas de Pull Request. Le generator `pullRequest` n'aurait rien
+#   créé sur un simple `git push` sans PR ouverte. Le generator `git` ne sait
+#   pas énumérer les branches. scmProvider liste les branches du repo via
+#   l'API GitHub et matérialise une Application par branche `feature/*`.
+#
+# Doc : https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-SCM-Provider/
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: annuaire-preview
+  namespace: argocd
+spec:
+  # goTemplate = syntaxe {{.branch}} (plus robuste que la fasttemplate {{branch}}).
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - scmProvider:
+        github:
+          # pour un compte perso, `organization` = le login GitHub.
+          organization: evanlefevre
+          allBranches: true
+          tokenRef:
+            secretName: github-token
+            key: token
+        # url clonée = https://github.com/evanlefevre/<repo>.git
+        cloneProtocol: https
+        filters:
+          # ne cibler QUE ce repo, et QUE les branches feature/*.
+          - repositoryMatch: ^devhub-campus$
+            branchMatch: ^feature/.*
+
+  template:
+    metadata:
+      # branchNormalized : slashes → tirets, minuscules → nom K8s valide.
+      # feature/demo-prof → feature-demo-prof
+      name: annuaire-preview-{{.branchNormalized}}
+      labels:
+        devhub.io/env: preview
+        devhub.io/service: annuaire
+    spec:
+      project: devhub
+      source:
+        repoURL: '{{.url}}'
+        targetRevision: '{{.branch}}'
+        path: services/annuaire/chart
+        helm:
+          valueFiles:
+            - values-preview.yaml
+          # chaque preview a son hôte propre : annuaire-<branche>.devhub.local
+          parameters:
+            - name: ingress.host
+              value: annuaire-{{.branchNormalized}}.devhub.local
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: devhub-preview-{{.branchNormalized}}
+      syncPolicy:
+        automated:
+          prune: true       # IMPORTANT : sans prune, les previews ne se nettoient jamais.
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

@@ -1,0 +1,41 @@
+# AppProject ArgoCD : `devhub`
+#
+# Un AppProject est votre brique de sécurité. Sans lui, n'importe quelle
+# Application peut pointer vers n'importe quel repo et déployer dans
+# n'importe quel namespace. C'est dangereux dans une plateforme partagée.
+#
+# Référence : https://argo-cd.readthedocs.io/en/stable/operator-manual/project-management/
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: devhub
+  namespace: argocd
+spec:
+  description: Plateforme DevHub Campus
+
+  # Seul le mono-repo du binôme est autorisé comme source. Tout autre
+  # dépôt (même un chart public) sera refusé par ArgoCD.
+  sourceRepos:
+    - https://github.com/evanlefevre/devhub-campus.git
+
+  destinations:
+    # environnements applicatifs : devhub-dev + devhub-preview-*
+    - server: https://kubernetes.default.svc
+      namespace: devhub-*
+    # la root Application (App of Apps) et les ApplicationSet créent leurs
+    # ressources (Application) dans le namespace argocd lui-même.
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+
+  # Cluster-scoped : uniquement les Namespaces (nécessaire pour
+  # CreateNamespace=true). Rien d'autre — pas de CRD, pas de ClusterRole.
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  # Ressources namespace-scoped autorisées. Par défaut * = tout. C'est OK
+  # pour le TP, mais en prod vous restreindriez.
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

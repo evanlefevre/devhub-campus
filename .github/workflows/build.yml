@@ -1,0 +1,50 @@
+name: build-images
+
+# Squelette à compléter — étape 3 (build) et défi de l'étape 3 (signature cosign).
+#
+# Principe GitOps : la CI BUILD et PUSH une image. C'est tout.
+# Elle ne touche PAS au cluster. C'est ArgoCD qui réagira au nouveau tag.
+
+on:
+  push:
+    branches: ["main", "feature/**"]
+    paths:
+      - "services/**"
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write          # nécessaire pour pousser sur ghcr.io
+  id-token: write          # nécessaire pour la signature cosign (OIDC keyless)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [annuaire, planning, notif]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: services/${{ matrix.service }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.ref_name }}
+
+      # TODO étape 3 (défi) : ajoutez la signature cosign keyless (OIDC).
+      # Indice : utilisez l'action sigstore/cosign-installer puis `cosign sign --yes`.
+      #
+      # TODO étape 3 (défi) : ajoutez un scan trivy en mode --exit-code=1 sur CRITICAL.

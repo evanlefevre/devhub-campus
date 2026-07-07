@@ -1,0 +1,6 @@
+ingress:
+  enabled: true
+  host: notif.devhub.local
+
+env:
+  LOG_LEVEL: debug
