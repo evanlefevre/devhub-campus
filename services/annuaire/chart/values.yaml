@@ -30,6 +30,8 @@ extraLabels: {}
 # Hook PreSync de migration (étape 8). Désactivé par défaut ; activé en dev.
 migration:
   enabled: false
+  # true = le hook échoue volontairement (démo notification échec, étape 9).
+  fail: false
 
 # ConfigMap de sync-wave -1 (étape 8, manip 5). Désactivé par défaut.
 config:

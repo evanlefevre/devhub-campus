@@ -28,7 +28,8 @@ spec:
         - name: migrate
           # réutilise l'image du service (déjà présente sur les nœuds).
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          command: ["sh", "-c", "echo 'migration ok'; sleep 2"]
+          # migration.fail: true fait échouer le hook PreSync (démo notifications étape 9).
+          command: ["sh", "-c", "echo 'migration ok'; {{ if .Values.migration.fail }}echo 'migration KO'; exit 1{{ else }}sleep 2{{ end }}"]
           securityContext:
             readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
             allowPrivilegeEscalation: {{ .Values.securityContext.allowPrivilegeEscalation }}

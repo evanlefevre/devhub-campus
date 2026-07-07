@@ -3,31 +3,43 @@
 #
 # Doc du chart : https://github.com/argoproj/argo-helm/tree/main/charts/argo-cd
 #
-# Le but de ce fichier : exposer l'UI via l'ingress-nginx du cluster,
-# avec un host `argocd.devhub.local`. Le reste est laissé par défaut.
+# Expose l'UI via l'ingress-nginx (host argocd.devhub.local) + étape 9 :
+# RBAC, notifications sur échec de sync, métriques Prometheus.
 
 global:
   domain: argocd.devhub.local
 
 configs:
   params:
-    # désactive le TLS interne — l'ingress-nginx est devant pour le HTTPS.
+    # désactive le TLS interne — l'ingress-nginx est devant pour le HTTP.
     server.insecure: true
   cm:
-    # TODO étape 9 : activer les notifications / l'OIDC / des comptes locaux.
-    # Pour l'étape 5, vous n'avez rien à ajouter ici.
     timeout.reconciliation: 180s
-    # TODO étape 9 : ajouter des `accounts.<user>: login, apiKey` pour
-    # créer un compte non-admin destiné aux tests RBAC.
+    # Compte local non-admin pour tester le RBAC (étape 9). login = accès UI/CLI,
+    # apiKey = génération de token. Mot de passe défini via `argocd account
+    # update-password --account developer`.
+    accounts.developer: "apiKey, login"
 
-  # TODO étape 9 : ajouter le RBAC ArgoCD ici.
-  # Référence : https://argo-cd.readthedocs.io/en/stable/operator-manual/rbac/
-  # rbac:
-  #   policy.default: ""
-  #   policy.csv: |
-  #     # TODO : un rôle developer + binding du compte créé ci-dessus
-  #     p, role:developer, applications, get, devhub/*, allow
-  #     # TODO : compléter pour autoriser le sync uniquement sur ses Apps
+  # RBAC ArgoCD (étape 9). Syntaxe : p, <sujet>, <ressource>, <action>, <objet>, allow|deny
+  # Le matching des objets est en glob (pas regex POSIX).
+  # Réf : https://argo-cd.readthedocs.io/en/stable/operator-manual/rbac/
+  rbac:
+    # tout utilisateur non mappé n'a aucun droit par défaut.
+    policy.default: ""
+    scopes: "[groups]"
+    policy.csv: |
+      # developer : VOIT toutes les Applications du projet devhub…
+      p, role:developer, applications, get, devhub/*, allow
+      p, role:developer, projects, get, devhub, allow
+      # …mais ne peut SYNC que celles dont le nom contient "annuaire" (son service).
+      p, role:developer, applications, sync, devhub/*annuaire*, allow
+      # platform-admin : tous les droits sur le projet devhub.
+      p, role:platform-admin, applications, *, devhub/*, allow
+      p, role:platform-admin, projects, *, devhub, allow
+      p, role:platform-admin, clusters, get, *, allow
+      # bindings des comptes locaux vers les rôles.
+      g, developer, role:developer
+      g, admin, role:platform-admin
 
 server:
   ingress:
@@ -35,24 +47,63 @@ server:
     ingressClassName: nginx
     hostname: argocd.devhub.local
     annotations:
-      # ArgoCD termine son propre TLS en interne. On dit à l'ingress
-      # de ne pas refaire de TLS terminaison côté server.
       nginx.ingress.kubernetes.io/backend-protocol: HTTP
     tls: false
+  # expose /metrics du composant server (étape 9 — observabilité).
+  metrics:
+    enabled: true
 
-# TODO étape 9 (défi) : activer la sous-chart notifications et
-# brancher un webhook qui envoie un message à chaque sync échouée.
-# notifications:
-#   enabled: true
-#   ...
+# Notifications (étape 9) : sur un échec de sync, POST un message vers un webhook
+# (mocké avec webhook.site). Le contrôleur argocd-notifications lit ce bloc.
+notifications:
+  enabled: true
+  argocdUrl: https://argocd.devhub.local
+  metrics:
+    enabled: true
+  notifiers:
+    service.webhook.devhub: |
+      url: https://webhook.site/2f55db79-eb5b-4cbd-8c9f-df5e2dd41e87
+      headers:
+      - name: Content-Type
+        value: application/json
+  templates:
+    template.app-sync-failed: |
+      webhook:
+        devhub:
+          method: POST
+          body: |
+            {
+              "application": "{{.app.metadata.name}}",
+              "revision": "{{.app.status.operationState.operation.sync.revision}}",
+              "phase": "{{.app.status.operationState.phase}}",
+              "message": "{{.app.status.operationState.message}}"
+            }
+  triggers:
+    trigger.on-sync-failed: |
+      - when: app.status.operationState.phase in ['Error', 'Failed']
+        send: [app-sync-failed]
+  # abonnement par défaut : toutes les Applications notifient ce webhook en cas d'échec.
+  subscriptions:
+    - recipients:
+        - webhook:devhub
+      triggers:
+        - on-sync-failed
 
-# Garde-fou ressources — utile en TP pour ne pas saturer la machine.
+# Métriques Prometheus (étape 9). Chaque composant expose un endpoint /metrics.
 controller:
+  metrics:
+    enabled: true
   resources:
     requests: { cpu: "50m", memory: "256Mi" }
     limits:   { cpu: "1",   memory: "1Gi" }
 
 repoServer:
+  metrics:
+    enabled: true
   resources:
     requests: { cpu: "50m", memory: "128Mi" }
     limits:   { cpu: "500m", memory: "512Mi" }
+
+applicationSet:
+  metrics:
+    enabled: true
