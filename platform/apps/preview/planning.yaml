@@ -1,5 +1,5 @@
 # ApplicationSet : planning — previews par branche (étape 7).
-# Même generator que annuaire-preview (scmProvider GitHub) ; voir la
+# Même generator que annuaire-preview (pullRequest GitHub) ; voir la
 # justification détaillée dans platform/apps/preview/annuaire.yaml.
 
 apiVersion: argoproj.io/v1alpha1
@@ -11,28 +11,27 @@ spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
   generators:
-    - scmProvider:
+    - pullRequest:
         github:
-          organization: evanlefevre
-          allBranches: true
+          owner: evanlefevre
+          repo: devhub-campus
           tokenRef:
             secretName: github-token
             key: token
-        cloneProtocol: https
         filters:
-          - repositoryMatch: ^devhub-campus$
-            branchMatch: ^feature/.*
+          - branchMatch: ^feature/.*
+        requeueAfterSeconds: 60
 
   template:
     metadata:
-      name: planning-preview-{{.branchNormalized}}
+      name: planning-preview-{{.branch_slug}}
       labels:
         devhub.io/env: preview
         devhub.io/service: planning
     spec:
       project: devhub
       source:
-        repoURL: '{{.url}}'
+        repoURL: https://github.com/evanlefevre/devhub-campus.git
         targetRevision: '{{.branch}}'
         path: services/planning/chart
         helm:
@@ -40,10 +39,10 @@ spec:
             - values-preview.yaml
           parameters:
             - name: ingress.host
-              value: planning-{{.branchNormalized}}.devhub.local
+              value: planning-{{.branch_slug}}.devhub.local
       destination:
         server: https://kubernetes.default.svc
-        namespace: devhub-preview-{{.branchNormalized}}
+        namespace: devhub-preview-{{.branch_slug}}
       syncPolicy:
         automated:
           prune: true

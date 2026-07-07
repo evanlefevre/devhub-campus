@@ -1,14 +1,15 @@
 # ApplicationSet : annuaire — previews par branche (étape 7).
 #
-# Generator retenu : scmProvider (GitHub).
-#   Justification (RAPPORT.md) : la démo du TP repose sur un cycle de vie de
-#   BRANCHE (« je pousse feature/demo-prof → preview ; je supprime la branche
-#   → prune »), pas de Pull Request. Le generator `pullRequest` n'aurait rien
-#   créé sur un simple `git push` sans PR ouverte. Le generator `git` ne sait
-#   pas énumérer les branches. scmProvider liste les branches du repo via
-#   l'API GitHub et matérialise une Application par branche `feature/*`.
+# Generator retenu : pullRequest (GitHub).
+#   Justification (RAPPORT.md) :
+#   1. Le generator scmProvider github interroge l'endpoint /orgs/<x>/repos,
+#      qui renvoie 404 pour un compte PERSONNEL (evanlefevre n'est pas une org).
+#      pullRequest interroge /repos/<owner>/<repo>/pulls → fonctionne pour un user.
+#   2. Une preview adossée à une PR ouverte est le pattern "review app" standard :
+#      elle naît à l'ouverture de la PR et disparaît (prune) à sa fermeture.
+#   3. Le squelette du TP était déjà calibré pour ce generator ({{branch_slug}}).
 #
-# Doc : https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-SCM-Provider/
+# Doc : https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-Pull-Request/
 
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -16,37 +17,34 @@ metadata:
   name: annuaire-preview
   namespace: argocd
 spec:
-  # goTemplate = syntaxe {{.branch}} (plus robuste que la fasttemplate {{branch}}).
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
   generators:
-    - scmProvider:
+    - pullRequest:
         github:
-          # pour un compte perso, `organization` = le login GitHub.
-          organization: evanlefevre
-          allBranches: true
+          owner: evanlefevre
+          repo: devhub-campus
           tokenRef:
             secretName: github-token
             key: token
-        # url clonée = https://github.com/evanlefevre/<repo>.git
-        cloneProtocol: https
+        # ne matérialiser que les PR issues de branches feature/*.
         filters:
-          # ne cibler QUE ce repo, et QUE les branches feature/*.
-          - repositoryMatch: ^devhub-campus$
-            branchMatch: ^feature/.*
+          - branchMatch: ^feature/.*
+        requeueAfterSeconds: 60
 
   template:
     metadata:
-      # branchNormalized : slashes → tirets, minuscules → nom K8s valide.
+      # branch_slug : slashes → tirets, minuscules → nom K8s valide.
       # feature/demo-prof → feature-demo-prof
-      name: annuaire-preview-{{.branchNormalized}}
+      name: annuaire-preview-{{.branch_slug}}
       labels:
         devhub.io/env: preview
         devhub.io/service: annuaire
     spec:
       project: devhub
       source:
-        repoURL: '{{.url}}'
+        repoURL: https://github.com/evanlefevre/devhub-campus.git
+        # suit la tête de la branche de la PR : un push met à jour la preview.
         targetRevision: '{{.branch}}'
         path: services/annuaire/chart
         helm:
@@ -55,10 +53,10 @@ spec:
           # chaque preview a son hôte propre : annuaire-<branche>.devhub.local
           parameters:
             - name: ingress.host
-              value: annuaire-{{.branchNormalized}}.devhub.local
+              value: annuaire-{{.branch_slug}}.devhub.local
       destination:
         server: https://kubernetes.default.svc
-        namespace: devhub-preview-{{.branchNormalized}}
+        namespace: devhub-preview-{{.branch_slug}}
       syncPolicy:
         automated:
           prune: true       # IMPORTANT : sans prune, les previews ne se nettoient jamais.
