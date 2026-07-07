@@ -13,12 +13,12 @@ image:
 migration:
   enabled: true
 
-# active le ConfigMap de sync-wave en dev (étape 8, manip 5).
-# refSuffix cassé volontairement : le Deployment référence un ConfigMap
-# inexistant (annuaire-dev-annuaire-missing) → pods CreateContainerConfigError.
+# manip 6 (prune) : on retire le ConfigMap du desired state (enabled:false).
+# Le Deployment reperd son envFrom → il soigne. Le ConfigMap devient orphelin
+# dans le cluster : sera prune ou non selon la syncPolicy de l'Application.
 config:
-  enabled: true
+  enabled: false
   banner: "DevHub Campus - dev"
-  refSuffix: missing
+  refSuffix: config
 # replicaCount hérité de values.yaml (2) — utile pour observer le selfHeal
 # de l'étape 8 (scale à 5 → ArgoCD redescend à 2).
