@@ -14,9 +14,11 @@ migration:
   enabled: true
 
 # active le ConfigMap de sync-wave en dev (étape 8, manip 5).
+# refSuffix cassé volontairement : le Deployment référence un ConfigMap
+# inexistant (annuaire-dev-annuaire-missing) → pods CreateContainerConfigError.
 config:
   enabled: true
   banner: "DevHub Campus - dev"
-  refSuffix: config
+  refSuffix: missing
 # replicaCount hérité de values.yaml (2) — utile pour observer le selfHeal
 # de l'étape 8 (scale à 5 → ArgoCD redescend à 2).
