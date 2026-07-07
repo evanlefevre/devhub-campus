@@ -7,6 +7,6 @@ ingress:
 env:
   LOG_LEVEL: debug
 image:
-  tag: 7ef6719
+  tag: v-nexiste-pas
 # replicaCount hérité de values.yaml (2) — utile pour observer le selfHeal
 # de l'étape 8 (scale à 5 → ArgoCD redescend à 2).
