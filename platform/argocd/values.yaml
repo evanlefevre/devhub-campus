@@ -85,7 +85,8 @@ notifications:
   # abonnement par défaut : toutes les Applications notifient ce webhook en cas d'échec.
   subscriptions:
     - recipients:
-        - webhook:devhub
+        # nom du webhook (défini par service.webhook.devhub), pas "webhook:devhub".
+        - devhub
       triggers:
         - on-sync-failed
 

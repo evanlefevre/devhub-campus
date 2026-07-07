@@ -10,10 +10,9 @@ image:
   tag: 7ef6719
 
 # active le hook PreSync de migration en dev (étape 8, manip 4).
-# fail:true temporaire pour la démo notification (étape 9).
 migration:
   enabled: true
-  fail: true
+  fail: false
 
 # manip 6 (prune) : on retire le ConfigMap du desired state (enabled:false).
 # Le Deployment reperd son envFrom → il soigne. Le ConfigMap devient orphelin
