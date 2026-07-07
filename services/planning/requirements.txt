@@ -1,2 +1,5 @@
 fastapi==0.115.0
-uvicorn[standard]==0.30.6
+# uvicorn sans l'extra [standard] : uvloop/httptools/watchfiles alourdissent
+# l'image de ~80 Mo (dont un binaire Rust) pour un gain de perf inutile ici.
+# Sans eux, l'image passe sous la contrainte des 200 Mo du TP.
+uvicorn==0.30.6
