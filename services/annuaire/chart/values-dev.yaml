@@ -8,5 +8,9 @@ env:
   LOG_LEVEL: debug
 image:
   tag: 7ef6719
+
+# active le hook PreSync de migration en dev (étape 8, manip 4).
+migration:
+  enabled: true
 # replicaCount hérité de values.yaml (2) — utile pour observer le selfHeal
 # de l'étape 8 (scale à 5 → ArgoCD redescend à 2).

@@ -27,6 +27,10 @@ env:
 # Vide par défaut ; les previews y injectent devhub.io/env: preview.
 extraLabels: {}
 
+# Hook PreSync de migration (étape 8). Désactivé par défaut ; activé en dev.
+migration:
+  enabled: false
+
 # TODO étape 4 (défi) : ajoutez ici un bloc `pdb` pour le PodDisruptionBudget.
 # pdb:
 #   enabled: false

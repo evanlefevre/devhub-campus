@@ -1,0 +1,37 @@
+{{- if .Values.migration.enabled }}
+# Hook PreSync (étape 8) : ArgoCD crée et attend la réussite de ce Job AVANT
+# d'appliquer le reste de la sync (Deployment, Service...). Cas d'usage réel :
+# une migration de schéma qui doit tourner avant la nouvelle version du code.
+# Un hook PreSync qui échoue BLOQUE la sync — c'est voulu.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "annuaire.fullname" . }}-migrate
+  labels:
+    {{- include "annuaire.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    # nettoie le Job de la sync précédente avant d'en recréer un.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "annuaire.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+      containers:
+        - name: migrate
+          # réutilise l'image du service (déjà présente sur les nœuds).
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          command: ["sh", "-c", "echo 'migration ok'; sleep 2"]
+          securityContext:
+            readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
+            allowPrivilegeEscalation: {{ .Values.securityContext.allowPrivilegeEscalation }}
+            capabilities:
+              {{- toYaml .Values.securityContext.capabilities | nindent 14 }}
+{{- end }}
