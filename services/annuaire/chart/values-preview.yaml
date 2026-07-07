@@ -2,7 +2,10 @@
 # L'ApplicationSet va probablement surcharger `ingress.host` à la volée par branche
 # via `parameters` — réfléchissez à ce qu'il faut laisser ici vs. surcharger.
 
-replicaCount: 1
+# DÉMO ÉTAPE 7 : changement visible propre à la branche feature/demo-prof.
+# La preview tournera avec 3 répliques là où le dev en a 2 — visible d'un
+# coup d'œil dans l'arbre ArgoCD de la preview.
+replicaCount: 3
 ingress:
   enabled: true
   # le vrai host sera injecté par l'ApplicationSet à la volée.
