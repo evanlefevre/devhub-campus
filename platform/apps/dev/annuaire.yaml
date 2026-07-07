@@ -30,7 +30,7 @@ spec:
     # selfHeal:true = corrige le drift ; prune:false = ne supprime jamais
     # sans validation humaine (activé ponctuellement à l'étape 8).
     automated:
-      prune: false
+      prune: true       # étape 8 manip 6 : autorise ArgoCD à supprimer les ressources retirées de Git.
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
