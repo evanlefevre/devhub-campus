@@ -4,6 +4,9 @@ metadata:
   name: {{ include "annuaire.fullname" . }}
   labels:
     {{- include "annuaire.labels" . | nindent 4 }}
+  annotations:
+    # Sync wave 0 : appliqué APRÈS le ConfigMap (wave -1) dont il dépend.
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -31,6 +34,14 @@ spec:
               value: "{{ .Values.service.targetPort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.env.LOG_LEVEL }}"
+          {{- if .Values.config.enabled }}
+          # Dépendance sur le ConfigMap de wave -1. Le suffixe est paramétrable
+          # pour pouvoir "casser" la référence en démo (manip 5) : pointer vers
+          # un ConfigMap inexistant → pods en CreateContainerConfigError.
+          envFrom:
+            - configMapRef:
+                name: {{ include "annuaire.fullname" . }}-{{ .Values.config.refSuffix }}
+          {{- end }}
           readinessProbe:
             httpGet:
               path: {{ .Values.probes.readiness.path }}

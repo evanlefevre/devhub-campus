@@ -31,6 +31,14 @@ extraLabels: {}
 migration:
   enabled: false
 
+# ConfigMap de sync-wave -1 (étape 8, manip 5). Désactivé par défaut.
+config:
+  enabled: false
+  banner: "DevHub Campus"
+  # suffixe du ConfigMap référencé par le Deployment. "config" = le bon ;
+  # le passer à "missing" casse la référence pour la démo.
+  refSuffix: config
+
 # TODO étape 4 (défi) : ajoutez ici un bloc `pdb` pour le PodDisruptionBudget.
 # pdb:
 #   enabled: false

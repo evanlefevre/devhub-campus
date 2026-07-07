@@ -1,0 +1,16 @@
+{{- if .Values.config.enabled }}
+# Sync wave -1 (étape 8) : ce ConfigMap est appliqué AVANT le Deployment
+# (wave 0). Le Deployment le consomme via envFrom → il dépend de lui, ce qui
+# justifie l'ordre. `configMapName` pointe volontairement vers un nom
+# paramétrable pour pouvoir "casser" la référence en démo (manip 5).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "annuaire.fullname" . }}-config
+  labels:
+    {{- include "annuaire.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+data:
+  APP_BANNER: {{ .Values.config.banner | quote }}
+{{- end }}
