@@ -1,15 +1,11 @@
 replicaCount: 1
-
 ingress:
   enabled: true
   host: preview.devhub.local
-
 env:
   LOG_LEVEL: debug
-
 extraLabels:
   devhub.io/env: preview
-
 resources:
   requests:
     cpu: 25m
@@ -17,3 +13,5 @@ resources:
   limits:
     cpu: 100m
     memory: 128Mi
+image:
+  tag: 7ef6719

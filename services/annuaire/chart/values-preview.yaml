@@ -3,20 +3,16 @@
 # via `parameters` — réfléchissez à ce qu'il faut laisser ici vs. surcharger.
 
 replicaCount: 1
-
 ingress:
   enabled: true
   # le vrai host sera injecté par l'ApplicationSet à la volée.
   host: preview.devhub.local
-
 env:
   LOG_LEVEL: debug
-
 # Marque toutes les ressources de preview pour les lister d'un coup :
 #   kubectl get all -A -l devhub.io/env=preview
 extraLabels:
   devhub.io/env: preview
-
 resources:
   requests:
     cpu: 25m
@@ -24,3 +20,5 @@ resources:
   limits:
     cpu: 100m
     memory: 96Mi
+image:
+  tag: 7ef6719

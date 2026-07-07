@@ -1,6 +1,7 @@
 ingress:
   enabled: true
   host: planning.devhub.local
-
 env:
   LOG_LEVEL: debug
+image:
+  tag: 7ef6719

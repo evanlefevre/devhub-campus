@@ -1,11 +1,10 @@
 replicaCount: 1
-
 ingress:
   enabled: true
   host: preview.devhub.local
-
 env:
   LOG_LEVEL: debug
-
 extraLabels:
   devhub.io/env: preview
+image:
+  tag: 7ef6719
